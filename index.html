@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VARUNA06 - 3D Underwater ROV CAD Platform</title>
+    <style>
+        :root {
+            --primary: #00e5ff;
+            --primary-dark: #008ba3;
+            --accent: #ff9100;
+            --bg-dark: #030c17;
+            --panel-bg: rgba(6, 20, 38, 0.88);
+            --panel-border: rgba(0, 229, 255, 0.35);
+            --text-main: #e0f4ff;
+            --text-dim: #7da5c2;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Technical HUD Overlay */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 18px 24px;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* Header UI */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title-block {
+            background: linear-gradient(135deg, var(--panel-bg), rgba(2, 10, 20, 0.95));
+            border-left: 4px solid var(--primary);
+            border-top: 1px solid var(--panel-border);
+            border-right: 1px solid var(--panel-border);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 12px 20px;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 229, 255, 0.15);
+            backdrop-filter: blur(8px);
+        }
+
+        .brand-title {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 2.5px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+        }
+
+        .brand-badge {
+            background: var(--primary);
+            color: #001322;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 3px;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            font-size: 11.5px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-top: 4px;
+            max-width: 420px;
+            line-height: 1.35;
+        }
+
+        /* Telemetry & Quick Specs Box */
+        .telemetry-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 12px 18px;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            display: grid;
+            grid-template-columns: auto auto;
+            gap: 6px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+        }
+
+        .telemetry-card span.label {
+            color: var(--text-dim);
+        }
+
+        .telemetry-card span.val {
+            color: var(--primary);
+            font-weight: bold;
+            text-align: right;
+        }
+
+        /* Floating Viewport Controls */
+        .controls-toolbar {
+            position: absolute;
+            right: 24px;
+            top: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+        }
+
+        .tool-btn {
+            background: rgba(0, 229, 255, 0.08);
+            border: 1px solid rgba(0, 229, 255, 0.25);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            text-align: left;
+            min-width: 140px;
+        }
+
+        .tool-btn:hover {
+            background: rgba(0, 229, 255, 0.25);
+            border-color: var(--primary);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0,229,255,0.4);
+            transform: translateX(-2px);
+        }
+
+        .tool-btn.active {
+            background: var(--primary);
+            color: #001322;
+            border-color: var(--primary);
+            font-weight: bold;
+        }
+
+        /* Bottom Inspection & Explode Bar */
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 20px;
+        }
+
+        .view-presets {
+            display: flex;
+            gap: 6px;
+            background: var(--panel-bg);
+            padding: 6px;
+            border-radius: 8px;
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(8px);
+        }
+
+        .preset-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-dim);
+            padding: 7px 14px;
+            font-size: 11.5px;
+            font-weight: 600;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .preset-btn.active {
+            background: rgba(0, 229, 255, 0.2);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        /* Component Details Card */
+        .info-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 14px 18px;
+            width: 380px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .info-card h3 {
+            font-size: 14px;
+            color: var(--primary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .info-card p {
+            font-size: 11.5px;
+            color: var(--text-dim);
+            line-height: 1.45;
+        }
+
+        .info-card .feature-list {
+            list-style: none;
+            margin-top: 8px;
+            font-size: 11px;
+        }
+
+        .info-card .feature-list li {
+            padding-left: 14px;
+            position: relative;
+            margin-bottom: 4px;
+            color: var(--text-main);
+        }
+
+        .info-card .feature-list li::before {
+            content: "■";
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-size: 9px;
+            top: 1px;
+        }
+
+        /* Slider Control */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--panel-bg);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--panel-border);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-dim);
+            backdrop-filter: blur(8px);
+        }
+
+        .slider-container input[type="range"] {
+            -webkit-appearance: none;
+            width: 140px;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(0, 229, 255, 0.2);
+            outline: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--primary);
+        }
+
+        /* 3D Hotspot Annotations */
+        .annotation-marker {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(0, 229, 255, 0.25);
+            border: 2px solid var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: all 0.25s;
+            pointer-events: auto;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+
+        .annotation-marker:hover {
+            transform: translate(-50%, -50%) scale(1.25);
+            background: var(--primary);
+            color: #000;
+        }
+
+        .annotation-marker::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid var(--primary);
+            animation: pulse-ring 2s infinite ease-out;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        /* Dimension Guides */
+        .dim-box {
+            font-family: 'Consolas', monospace;
+            font-size: 10px;
+            color: var(--accent);
+            border: 1px dashed var(--accent);
+            padding: 3px 6px;
+            background: rgba(255, 145, 0, 0.1);
+            border-radius: 3px;
+        }
+
+        @media (max-width: 900px) {
+            .controls-toolbar { display: none; }
+            .info-card { width: 300px; }
+            .brand-title { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="webgl-container"></div>
+
+    <div class="hud-overlay">
+        <!-- Top Header & Specs -->
+        <header>
+            <div class="title-block interactive">
+                <div class="brand-title">VARUNA06 <span class="brand-badge">CAD v3.4</span></div>
+                <div class="subtitle">Tethered Underwater Robotic Platform for Seafloor Resource-Related Anomaly Detection</div>
+            </div>
+
+            <div class="telemetry-card interactive">
+                <span class="label">DIMENSIONS:</span>
+                <span class="val">420 × 320 × 260 mm</span>
+                <span class="label">DRY MASS:</span>
+                <span class="val">~8.4 kg (Ballasted)</span>
+                <span class="label">THRUSTERS:</span>
+                <span class="val">4× Ducted BLDC (2H + 2V)</span>
+                <span class="label">DEPTH RATING:</span>
+                <span class="val">50 m (Shallow Water)</span>
+                <span class="label">PAYLOAD EM:</span>
+                <span class="val">1 TX + 2 RX Coils + Mag</span>
+            </div>
+        </header>
+
+        <!-- Right Vertical Toolbar -->
+        <div class="controls-toolbar interactive">
+            <button class="tool-btn" id="btn-spin" onclick="toggleThrusters()">
+                <span>⚡</span> Thrusters: ON
+            </button>
+            <button class="tool-btn" id="btn-lights" onclick="toggleLights()">
+                <span>💡</span> Subsea LEDs: ON
+            </button>
+            <button class="tool-btn" id="btn-water" onclick="toggleOceanFx()">
+                <span>🌊</span> Ocean FX: ON
+            </button>
+            <button class="tool-btn" id="btn-wireframe" onclick="toggleWireframe()">
+                <span>📐</span> CAD Wireframe
+            </button>
+            <button class="tool-btn" id="btn-cutaway" onclick="focusElectronics()">
+                <span>🔬</span> Pressure Enclosure
+            </button>
+        </div>
+
+        <!-- Bottom Controls & Active Part Info -->
+        <div class="bottom-bar">
+            <!-- Part Specs Description Card -->
+            <div class="info-card interactive" id="part-info">
+                <h3 id="info-title"><span>VARUNA06 Overview</span> <span class="dim-box">420×320×260mm</span></h3>
+                <p id="info-desc">Click numbered hotspot markers or assembly view buttons to inspect individual subsea modules, structural components, and sensor arrays.</p>
+                <ul class="feature-list" id="info-bullets">
+                    <li>Modular 6061-T6 hard-anodized aluminum chassis</li>
+                    <li>Central transparent acrylic pressure housing with dual O-rings</li>
+                    <li>Symmetrical 4-thruster differential & vertical propulsion</li>
+                    <li>Integrated EM induction & galvanic seafloor anomaly sensor suite</li>
+                </ul>
+            </div>
+
+            <!-- Exploded View & Views -->
+            <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end;">
+                <div class="slider-container interactive">
+                    <span>EXPLODED CAD VIEW:</span>
+                    <input type="range" id="explode-slider" min="0" max="1" step="0.005" value="0" oninput="setExplode(this.value)">
+                    <span id="explode-val">0%</span>
+                </div>
+
+                <div class="view-presets interactive">
+                    <button class="preset-btn active" onclick="setView('iso', this)">Isometric</button>
+                    <button class="preset-btn" onclick="setView('front', this)">Front</button>
+                    <button class="preset-btn" onclick="setView('side', this)">Side</button>
+                    <button class="preset-btn" onclick="setView('top', this)">Top</button>
+                    <button class="preset-btn" onclick="setView('bottom', this)">Sensors (Bottom)</button>
+                    <button class="preset-btn" onclick="setView('exploded', this)">Exploded</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hotspot Anchors Container -->
+    <div id="hotspots-layer"></div>
+
+    <!-- Three.js + OrbitControls + TWEEN via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <script>
+        /* -------------------------------------------------------------
+           VARUNA06 3D CAD ENGINE - THREE.JS HIGH-PRECISION VISUALIZER
+           ------------------------------------------------------------- */
+
+        // Global State & Config
+        const CONFIG = {
+            scale: 0.01, // 1 ThreeJS unit = 100mm. ROV = 4.2 x 3.2 x 2.6
+            thrustersRunning: true,
+            lightsOn: true,
+            oceanFx: true,
+            wireframe: false,
+            explodeProgress: 0
+        };
+
+        let scene, camera, renderer, controls;
+        let rovRootGroup, explodedGroups = {};
+        let propellers = [];
+        let subseaSpotlights = [];
+        let oceanParticles, causticLight;
+        const hotspots = [];
+
+        // Information Callout Database
+        const PART_DATA = {
+            overview: {
+                title: "VARUNA06 ROV Assembly",
+                badge: "420×320×260mm",
+                desc: "Tethered shallow-water seafloor resource-related anomaly detection platform. Engineered for rigid stability, sensor standoff repeatability, and field serviceability.",
+                bullets: [
+                    "6061-T6 Black Anodized aluminum skeleton with SS316 fasteners",
+                    "Positive buoyancy stability margin with 4 closed-cell marine foam blocks",
+                    "Dedicated lower modular cartridge for high-conductivity EM & galvanic detection",
+                    "Rated for 50m survey depths with high-bandwidth RS485/Ethernet tether link"
+                ]
+            },
+            housing: {
+                title: "Central Acrylic Pressure Housing",
+                badge: "Ø110 × 280 mm",
+                desc: "High-integrity transparent acrylic tube containing internal avionics, computing, ESCs, and sensor ADCs with dual radial O-ring sealed aluminum endcaps.",
+                bullets: [
+                    "ESP32-S3 main telemetry hub + Arduino real-time co-processor",
+                    "ADS1115 16-bit Delta-Sigma ADC for microvolt galvanic readings",
+                    "MS5803-14BA high-resolution pressure/depth/temperature sensor",
+                    "Organized wiring rail with LED status indicators & quick-release tray"
+                ]
+            },
+            buoyancy: {
+                title: "Upper Buoyancy Modules (4×)",
+                badge: "Closed-Cell Foam",
+                desc: "Four high-density blue closed-cell syntactic marine foam modules mounted at the chassis upper corners to maximize metacentric height and guarantee self-righting.",
+                bullets: [
+                    "High positive buoyancy located above center of gravity",
+                    "Hydrodynamic contoured edges to minimize drag",
+                    "Held by anodized aluminum retainers and SS316 tie plates"
+                ]
+            },
+            thrusters: {
+                title: "Ducted Thruster Propulsion (4×)",
+                badge: "2 Horiz + 2 Vert",
+                desc: "Symmetrical 4-thruster configuration offering surge, heave, and yaw control with protective hydrodynamic Kort-style ducts and brushless motors.",
+                bullets: [
+                    "2× Horizontal thrusters for forward/reverse differential steering",
+                    "2× Vertical thrusters for depth holding and precision standoff control",
+                    "Ducts protect propellers from seafloor debris, vegetation and tether snagging"
+                ]
+            },
+            sensors: {
+                title: "Subsea Sensor Cartridge (Bottom)",
+                badge: "Modular Array",
+                desc: "Removable non-magnetic sensor cartridge mounted underneath the chassis close to seafloor boundary layer for multi-modal mineral & anomaly detection.",
+                bullets: [
+                    "1× Central Transmit (TX) Coil + 2× High-sensitivity Receive (RX) Coils",
+                    "1× Downward 1080p Inspection Camera with dual LED illuminators",
+                    "1× Acoustic Altimeter for seafloor standoff distance locking",
+                    "2× Spring-loaded Galvanic Electrodes for seawater/sediment conductivity"
+                ]
+            },
+            magnetometer: {
+                title: "Magnetometer Boom Arm",
+                badge: "Isolated Standoff",
+                desc: "Triaxial fluxgate/magnetoresistive sensor isolated on an extended non-ferrous boom to isolate earth-magnetic anomalies from thruster EMI.",
+                bullets: [
+                    "Rigid lightweight bracket prevents vibrational drift",
+                    "Detects magnetic field variations from ferrous deposits and cables"
+                ]
+            },
+            tether: {
+                title: "Tether & Umbilical Strain Relief",
+                badge: "Data + Power",
+                desc: "High-visibility buoyant umbilical entering the upper rear endcap via industrial waterproof IP68 cable glands and bend-limiting strain relief boot.",
+                bullets: [
+                    "Neutrally buoyant polyurethane jacketed tether",
+                    "High-speed data uplink + real-time sensor visualization at surface console"
+                ]
+            }
+        };
+
+        // Initialize Scene
+        function init() {
+            const container = document.getElementById('webgl-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030d1a);
+            scene.fog = new THREE.FogExp2(0x030d1a, 0.045);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(4.5, 3.2, 5.2);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.maxDistance = 18;
+            controls.minDistance = 1.5;
+            controls.target.set(0, 0, 0);
+
+            // Build ROV and Environment
+            setupLighting();
+            buildUnderwaterEnvironment();
+            buildVarunaROV();
+            createHotspots();
+
+            // Resize Listener
+            window.addEventListener('resize', onWindowResize);
+
+            // Render Loop
+            animate();
+        }
+
+        /* -------------------------------------------------------------
+           LIGHTING SETUP
+           ------------------------------------------------------------- */
+        function setupLighting() {
+            // Ambient subsea glow
+            const ambient = new THREE.AmbientLight(0x0f3455, 1.4);
+            scene.add(ambient);
+
+            // Sunlight penetrating water surface
+            const sunLight = new THREE.DirectionalLight(0x73d6ff, 2.2);
+            sunLight.position.set(5, 12, 6);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 25;
+            sunLight.shadow.camera.left = -4;
+            sunLight.shadow.camera.right = 4;
+            sunLight.shadow.camera.top = 4;
+            sunLight.shadow.camera.bottom = -4;
+            sunLight.shadow.bias = -0.0005;
+            scene.add(sunLight);
+
+            // Deep ocean bounce light
+            const bottomLight = new THREE.DirectionalLight(0x004060, 0.9);
+            bottomLight.position.set(-3, -8, -3);
+            scene.add(bottomLight);
+
+            // Animated Caustics Projector Simulator
+            causticLight = new THREE.PointLight(0x00e5ff, 1.5, 12);
+            causticLight.position.set(0, 6, 0);
+            scene.add(causticLight);
+        }
+
+        /* -------------------------------------------------------------
+           UNDERWATER ENVIRONMENT (Seafloor + Marine Snow)
+           ------------------------------------------------------------- */
+        function buildUnderwaterEnvironment() {
+            // Seafloor grid / terrain plate
+            const floorGeo = new THREE.PlaneGeometry(30, 30, 64, 64);
+            const pos = floorGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const vx = pos.getX(i);
+                const vy = pos.getY(i);
+                const z = Math.sin(vx * 0.4) * Math.cos(vy * 0.4) * 0.25 + Math.sin(vx * 1.2) * 0.08;
+                pos.setZ(i, z);
+            }
+            floorGeo.computeVertexNormals();
+
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x081e33,
+                roughness: 0.9,
+                metalness: 0.1,
+                wireframe: false
+            });
+            const seafloor = new THREE.Mesh(floorGeo, floorMat);
+            seafloor.rotation.x = -Math.PI / 2;
+            seafloor.position.y = -2.2;
+            seafloor.receiveShadow = true;
+            scene.add(seafloor);
+
+            // Seafloor CAD Grid Overlay
+            const grid = new THREE.GridHelper(24, 48, 0x00e5ff, 0x0a324d);
+            grid.position.y = -2.18;
+            scene.add(grid);
+
+            // Marine Snow Floating Particles
+            const particleCount = 450;
+            const pGeo = new THREE.BufferGeometry();
+            const pPositions = new Float32Array(particleCount * 3);
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                pPositions[i] = (Math.random() - 0.5) * 14;
+                pPositions[i + 1] = (Math.random() - 0.5) * 8;
+                pPositions[i + 2] = (Math.random() - 0.5) * 14;
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+
+            const pMat = new THREE.PointsMaterial({
+                color: 0x88e7ff,
+                size: 0.045,
+                transparent: true,
+                opacity: 0.65,
+                blending: THREE.AdditiveBlending
+            });
+            oceanParticles = new THREE.Points(pGeo, pMat);
+            scene.add(oceanParticles);
+        }
+
+        /* -------------------------------------------------------------
+           MATERIALS REPOSITORY
+           ------------------------------------------------------------- */
+        const MAT = {
+            // Anodized black aluminum chassis
+            chassisBlack: new THREE.MeshStandardMaterial({
+                color: 0x181b20,
+                metalness: 0.82,
+                roughness: 0.28,
+                envMapIntensity: 1.0
+            }),
+            // CNC Chamfer & Accent metal
+            machinedMetal: new THREE.MeshStandardMaterial({
+                color: 0x5a6572,
+                metalness: 0.92,
+                roughness: 0.2
+            }),
+            // SS316 Stainless Steel bolts & shafts
+            ss316: new THREE.MeshStandardMaterial({
+                color: 0xd8e2ec,
+                metalness: 0.95,
+                roughness: 0.15
+            }),
+            // Blue Marine Syntactic Foam Buoyancy
+            buoyancyFoam: new THREE.MeshStandardMaterial({
+                color: 0x0072d6,
+                roughness: 0.45,
+                metalness: 0.1
+            }),
+            // Acrylic Transparent Housing Tube
+            acrylicGlass: new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.42,
+                roughness: 0.05,
+                metalness: 0.02,
+                transmission: 0.9,
+                ior: 1.49,
+                reflectivity: 0.7,
+                thickness: 0.4
+            }),
+            // Internal PCB Board
+            pcbGreen: new THREE.MeshStandardMaterial({
+                color: 0x0e5c36,
+                roughness: 0.4,
+                metalness: 0.3
+            }),
+            pcbBlue: new THREE.MeshStandardMaterial({
+                color: 0x0c3c78,
+                roughness: 0.4,
+                metalness: 0.3
+            }),
+            pcbRed: new THREE.MeshStandardMaterial({
+                color: 0x8a1313,
+                roughness: 0.4,
+                metalness: 0.2
+            }),
+            // Electronic Chips & Components
+            chipBlack: new THREE.MeshStandardMaterial({
+                color: 0x111111,
+                roughness: 0.5,
+                metalness: 0.2
+            }),
+            copperCoil: new THREE.MeshStandardMaterial({
+                color: 0xc86420,
+                metalness: 0.85,
+                roughness: 0.25
+            }),
+            coilHousing: new THREE.MeshStandardMaterial({
+                color: 0x221a14,
+                roughness: 0.3,
+                metalness: 0.4
+            }),
+            // High-Vis Yellow Tether
+            tetherYellow: new THREE.MeshStandardMaterial({
+                color: 0xffd000,
+                roughness: 0.35,
+                metalness: 0.1
+            }),
+            // Black Rubber Conduit & Seals
+            rubberBlack: new THREE.MeshStandardMaterial({
+                color: 0x0a0a0b,
+                roughness: 0.8,
+                metalness: 0.05
+            }),
+            // Propeller Blue Plastic/Composite
+            propellerBlue: new THREE.MeshStandardMaterial({
+                color: 0x0088ff,
+                roughness: 0.3,
+                metalness: 0.2
+            }),
+            // LED Emitters
+            ledEmitter: new THREE.MeshBasicMaterial({
+                color: 0xffffff
+            }),
+            ledGlowGreen: new THREE.MeshBasicMaterial({
+                color: 0x00ff66
+            }),
+            ledGlowAmber: new THREE.MeshBasicMaterial({
+                color: 0xffaa00
+            }),
+            cameraLens: new THREE.MeshStandardMaterial({
+                color: 0x050f1a,
+                roughness: 0.05,
+                metalness: 0.95
+            })
+        };
+
+        /* -------------------------------------------------------------
+           CAD MODEL GENERATOR: VARUNA06 ASSEMBLY
+           ------------------------------------------------------------- */
+        function buildVarunaROV() {
+            rovRootGroup = new THREE.Group();
+            scene.add(rovRootGroup);
+
+            // Groups for exploded view animations
+            explodedGroups = {
+                frame: new THREE.Group(),
+                housing: new THREE.Group(),
+                buoyancyTop: new THREE.Group(),
+                thrustersH: new THREE.Group(),
+                thrustersV: new THREE.Group(),
+                cartridge: new THREE.Group(),
+                tether: new THREE.Group(),
+                magBoom: new THREE.Group()
+            };
+
+            Object.values(explodedGroups).forEach(grp => rovRootGroup.add(grp));
+
+            /* 1. MAIN CHASSIS SKELETON */
+            buildMainChassis(explodedGroups.frame);
+
+            /* 2. CENTRAL TRANSPARENT PRESSURE HOUSING + ELECTRONICS */
+            buildPressureHousing(explodedGroups.housing);
+
+            /* 3. BUOYANCY FOAM BLOCKS */
+            buildBuoyancyModules(explodedGroups.buoyancyTop);
+
+            /* 4. FOUR DUCTED THRUSTERS (2 HORIZONTAL + 2 VERTICAL) */
+            buildThrusterSystem(explodedGroups.thrustersH, explodedGroups.thrustersV);
+
+            /* 5. BOTTOM SENSOR CARTRIDGE */
+            buildSensorCartridge(explodedGroups.cartridge);
+
+            /* 6. MAGNETOMETER SIDE BOOM */
+            buildMagnetometerBoom(explodedGroups.magBoom);
+
+            /* 7. HIGH-VIS TETHER & CABLE ROUTING */
+            buildTetherAndCabling(explodedGroups.tether);
+        }
+
+        /* 1. CHASSIS FRAMEWORK */
+        function buildMainChassis(group) {
+            // ROV Size: 4.2 L x 3.2 W x 2.6 H
+            // Side CNC Plates (Left & Right)
+            const plateShape = new THREE.Shape();
+            plateShape.moveTo(-1.9, -0.6);
+            plateShape.lineTo(1.9, -0.6);
+            plateShape.lineTo(2.0, 0.0);
+            plateShape.lineTo(1.8, 0.7);
+            plateShape.lineTo(-1.8, 0.7);
+            plateShape.lineTo(-2.0, 0.0);
+            plateShape.closePath();
+
+            // Lightweighting cutouts
+            const hole1 = new THREE.Path();
+            hole1.moveTo(-1.2, -0.2);
+            hole1.lineTo(-0.4, -0.2);
+            hole1.lineTo(-0.4, 0.4);
+            hole1.lineTo(-1.2, 0.4);
+            hole1.closePath();
+            plateShape.holes.push(hole1);
+
+            const hole2 = new THREE.Path();
+            hole2.moveTo(0.4, -0.2);
+            hole2.lineTo(1.2, -0.2);
+            hole2.lineTo(1.2, 0.4);
+            hole2.lineTo(0.4, 0.4);
+            hole2.closePath();
+            plateShape.holes.push(hole2);
+
+            const extrudeSettings = { depth: 0.08, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
+            const plateGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
+
+            // Left CNC Side Plate
+            const leftPlate = new THREE.Mesh(plateGeo, MAT.chassisBlack);
+            leftPlate.position.set(0, 0, 1.35);
+            leftPlate.castShadow = true;
+            leftPlate.receiveShadow = true;
+            group.add(leftPlate);
+
+            // Right CNC Side Plate
+            const rightPlate = leftPlate.clone();
+            rightPlate.position.set(0, 0, -1.43);
+            group.add(rightPlate);
+
+            // Cross-member Aluminum Extrusions (Connecting Left & Right)
+            const crossMemberGeo = new THREE.BoxGeometry(0.12, 0.12, 2.8);
+            const crossPositions = [
+                [-1.6, 0.6, 0], [1.6, 0.6, 0],
+                [-1.7, -0.5, 0], [1.7, -0.5, 0],
+                [0, -0.55, 0]
+            ];
+
+            crossPositions.forEach(p => {
+                const beam = new THREE.Mesh(crossMemberGeo, MAT.machinedMetal);
+                beam.position.set(p[0], p[1], p[2]);
+                beam.castShadow = true;
+                group.add(beam);
+
+                // Add corner bracket gussets and stainless bolts
+                [-1.38, 1.38].forEach(zPos => {
+                    const boltGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.03, 8);
+                    const bolt = new THREE.Mesh(boltGeo, MAT.ss316);
+                    bolt.rotation.x = Math.PI / 2;
+                    bolt.position.set(p[0], p[1], zPos);
+                    group.add(bolt);
+                });
+            });
+
+            // Lower stainless steel ballast plates
+            const ballastGeo = new THREE.BoxGeometry(2.4, 0.06, 0.6);
+            const ballast = new THREE.Mesh(ballastGeo, MAT.ss316);
+            ballast.position.set(0, -0.68, 0);
+            ballast.castShadow = true;
+            group.add(ballast);
+
+            // Housing Clamping Saddles (Arch Brackets holding Acrylic Tube)
+            [-0.7, 0.7].forEach(x => {
+                const saddleGeo = new THREE.CylinderGeometry(0.64, 0.64, 0.12, 32, 1, true, 0, Math.PI);
+                const saddle = new THREE.Mesh(saddleGeo, MAT.chassisBlack);
+                saddle.rotation.z = -Math.PI / 2;
+                saddle.rotation.y = Math.PI / 2;
+                saddle.position.set(x, 0, 0);
+                group.add(saddle);
+
+                // Saddle retention clamp band
+                const strapGeo = new THREE.TorusGeometry(0.64, 0.02, 8, 32, Math.PI);
+                const strap = new THREE.Mesh(strapGeo, MAT.ss316);
+                strap.rotation.y = Math.PI / 2;
+                strap.position.set(x, 0.05, 0);
+                group.add(strap);
+            });
+        }
+
+        /* 2. CENTRAL TRANSPARENT PRESSURE HOUSING & INTERNAL ELECTRONICS */
+        function buildPressureHousing(group) {
+            // Transparent Cylindrical Tube (Acrylic)
+            const tubeGeo = new THREE.CylinderGeometry(0.6, 0.6, 2.2, 36, 1, true);
+            const acrylicTube = new THREE.Mesh(tubeGeo, MAT.acrylicGlass);
+            acrylicTube.rotation.z = Math.PI / 2;
+            acrylicTube.position.set(0, 0.08, 0);
+            acrylicTube.castShadow = true;
+            group.add(acrylicTube);
+
+            // Aluminum Endcaps with Bolt Rings (Left/Right ends)
+            [-1.12, 1.12].forEach((x, idx) => {
+                const endcapGeo = new THREE.CylinderGeometry(0.63, 0.63, 0.12, 32);
+                const endcap = new THREE.Mesh(endcapGeo, MAT.chassisBlack);
+                endcap.rotation.z = Math.PI / 2;
+                endcap.position.set(x, 0.08, 0);
+                group.add(endcap);
+
+                // O-ring groove ring
+                const oRingGeo = new THREE.TorusGeometry(0.58, 0.02, 8, 32);
+                const oRing = new THREE.Mesh(oRingGeo, MAT.rubberBlack);
+                oRing.rotation.y = Math.PI / 2;
+                oRing.position.set(x - (idx === 0 ? -0.05 : 0.05), 0.08, 0);
+                group.add(oRing);
+
+                // Perimeter SS316 Hex Fasteners (6 bolts per endcap)
+                for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) {
+                    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 6), MAT.ss316);
+                    bolt.rotation.z = Math.PI / 2;
+                    bolt.position.set(x + (idx === 0 ? -0.06 : 0.06), 0.08 + Math.sin(a) * 0.48, Math.cos(a) * 0.48);
+                    group.add(bolt);
+                }
+
+                // Waterproof Marine Cable Penetrator Glands (Brass / Black)
+                const glandGeo = new THREE.CylinderGeometry(0.05, 0.06, 0.16, 12);
+                const gland1 = new THREE.Mesh(glandGeo, MAT.machinedMetal);
+                gland1.rotation.z = Math.PI / 2;
+                gland1.position.set(x + (idx === 0 ? -0.12 : 0.12), 0.22, 0.18);
+                group.add(gland1);
+
+                const gland2 = gland1.clone();
+                gland2.position.set(x + (idx === 0 ? -0.12 : 0.12), -0.05, -0.18);
+                group.add(gland2);
+            });
+
+            // INTERNAL ELECTRONICS TRAY (Inside Acrylic Tube)
+            const internalTrayGroup = new THREE.Group();
+            internalTrayGroup.position.set(0, 0.05, 0);
+            group.add(internalTrayGroup);
+
+            // Aluminum sliding tray base
+            const trayBase = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.04, 0.8), MAT.machinedMetal);
+            trayBase.position.y = -0.18;
+            internalTrayGroup.add(trayBase);
+
+            // ESP32 Main Controller PCB (Center)
+            const espPcb = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.03, 0.35), MAT.pcbGreen);
+            espPcb.position.set(-0.45, -0.14, 0);
+            internalTrayGroup.add(espPcb);
+
+            const espChip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.2), MAT.ss316);
+            espChip.position.set(-0.45, -0.11, 0);
+            internalTrayGroup.add(espChip);
+
+            // ADS1115 ADC + IMU Board (Right)
+            const adsPcb = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.03, 0.32), MAT.pcbBlue);
+            adsPcb.position.set(0.15, -0.14, -0.15);
+            internalTrayGroup.add(adsPcb);
+
+            // DC-DC Buck Converter + ESC Power Modules (Left & Rear)
+            const pwrPcb = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.03, 0.35), MAT.pcbRed);
+            pwrPcb.position.set(0.55, -0.14, 0.15);
+            internalTrayGroup.add(pwrPcb);
+
+            // Aluminum Heat Sink Finned Block
+            const heatsinkGeo = new THREE.BoxGeometry(0.3, 0.09, 0.2);
+            const heatsink = new THREE.Mesh(heatsinkGeo, MAT.machinedMetal);
+            heatsink.position.set(0.55, -0.08, 0.15);
+            internalTrayGroup.add(heatsink);
+
+            // 4x Miniature ESC Modules (Electronic Speed Controllers for Thrusters)
+            for (let i = 0; i < 4; i++) {
+                const esc = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.12), MAT.buoyancyFoam);
+                esc.position.set(-0.45 + (i * 0.26), -0.13, 0.28);
+                internalTrayGroup.add(esc);
+            }
+
+            // Status Indicator LEDs (Pulsing Green / Blue / Amber)
+            const led1 = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), MAT.ledGlowGreen);
+            led1.position.set(-0.35, -0.1, 0.05);
+            internalTrayGroup.add(led1);
+
+            const led2 = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), MAT.ledGlowAmber);
+            led2.position.set(-0.30, -0.1, -0.08);
+            internalTrayGroup.add(led2);
+
+            // Internal Wiring Harness Bundle
+            const wireCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.7, -0.14, 0),
+                new THREE.Vector3(-0.2, -0.08, 0.1),
+                new THREE.Vector3(0.2, -0.09, -0.1),
+                new THREE.Vector3(0.7, -0.14, 0.1)
+            ]);
+            const wireGeo = new THREE.TubeGeometry(wireCurve, 20, 0.018, 8, false);
+            const wireMesh = new THREE.Mesh(wireGeo, MAT.copperCoil);
+            internalTrayGroup.add(wireMesh);
+        }
+
+        /* 3. BUOYANCY MODULES (4× CORNER BLOCKS) */
+        function buildBuoyancyModules(group) {
+            // Symmetrical 4 Foam Blocks mounted high on top frame
+            const blockGeo = new THREE.BoxGeometry(1.15, 0.52, 0.65);
+
+            // Coordinates for 4 corners: [Front-Left, Front-Right, Rear-Left, Rear-Right]
+            const coords = [
+                [-1.0, 0.95, 0.95],
+                [1.0, 0.95, 0.95],
+                [-1.0, 0.95, -0.95],
+                [1.0, 0.95, -0.95]
+            ];
+
+            coords.forEach(pos => {
+                const foam = new THREE.Mesh(blockGeo, MAT.buoyancyFoam);
+                foam.position.set(pos[0], pos[1], pos[2]);
+                foam.castShadow = true;
+                group.add(foam);
+
+                // Aluminum mounting retention bracket
+                const bracket = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, 0.12), MAT.chassisBlack);
+                bracket.position.set(pos[0], pos[1] + 0.28, pos[2]);
+                group.add(bracket);
+
+                // Corner chamfer plate detail
+                const rib = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.54, 0.68), MAT.machinedMetal);
+                rib.position.set(pos[0], pos[1], pos[2]);
+                group.add(rib);
+            });
+        }
+
+        /* 4. EXACTLY FOUR DUCTED THRUSTERS (2 HORIZONTAL + 2 VERTICAL) */
+        function buildThrusterSystem(hGroup, vGroup) {
+            /* --- 4.A TWO HORIZONTAL THRUSTERS (Left & Right - Surge / Yaw) --- */
+            const hPositions = [
+                { x: -1.75, y: 0.1, z: 1.6, rotY: 0 },
+                { x: -1.75, y: 0.1, z: -1.6, rotY: 0 }
+            ];
+
+            hPositions.forEach((p, idx) => {
+                const thrusterAssy = createSingleThruster(true); // Horizontal orientation
+                thrusterAssy.position.set(p.x, p.y, p.z);
+                hGroup.add(thrusterAssy);
+
+                // Mounting Bracket connecting to side plate
+                const mount = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.1, 0.25), MAT.chassisBlack);
+                mount.position.set(p.x + 0.2, p.y, idx === 0 ? p.z - 0.2 : p.z + 0.2);
+                hGroup.add(mount);
+            });
+
+            /* --- 4.B TWO VERTICAL THRUSTERS (Left & Right - Heave / Pitch) --- */
+            const vPositions = [
+                { x: 1.1, y: -0.05, z: 1.55 },
+                { x: 1.1, y: -0.05, z: -1.55 }
+            ];
+
+            vPositions.forEach((p, idx) => {
+                const thrusterAssy = createSingleThruster(false); // Vertical orientation
+                thrusterAssy.position.set(p.x, p.y, p.z);
+                vGroup.add(thrusterAssy);
+
+                // Vertical Mounting Outrigger Bracket
+                const mount = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.3), MAT.chassisBlack);
+                mount.position.set(p.x, p.y + 0.32, idx === 0 ? p.z - 0.15 : p.z + 0.15);
+                vGroup.add(mount);
+            });
+        }
+
+        // Helper: Builds a realistic Kort ducted thruster with 3-blade prop
+        function createSingleThruster(isHorizontal) {
+            const tGroup = new THREE.Group();
+
+            // Cylindrical Hydrodynamic Duct Nozzle
+            const ductGeo = new THREE.CylinderGeometry(0.38, 0.35, 0.45, 24, 1, true);
+            const duct = new THREE.Mesh(ductGeo, MAT.chassisBlack);
+            duct.castShadow = true;
+
+            // Brushless Motor Pod (Center Hub)
+            const motorGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.32, 18);
+            const motorPod = new THREE.Mesh(motorGeo, MAT.machinedMetal);
+
+            // Stator support struts (3 struts connecting motor to duct)
+            for (let a = 0; a < Math.PI * 2; a += (Math.PI * 2) / 3) {
+                const strut = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 0.06), MAT.chassisBlack);
+                strut.position.set(Math.cos(a) * 0.22, 0, Math.sin(a) * 0.22);
+                strut.rotation.y = -a;
+                tGroup.add(strut);
+            }
+
+            // Propeller (3-Blade Hydrofoil Prop)
+            const propGroup = new THREE.Group();
+            const propHub = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.15, 12), MAT.propellerBlue);
+            propHub.rotation.x = Math.PI;
+            propGroup.add(propHub);
+
+            for (let i = 0; i < 3; i++) {
+                const angle = (i * Math.PI * 2) / 3;
+                const bladeGeo = new THREE.BoxGeometry(0.22, 0.02, 0.08);
+                const blade = new THREE.Mesh(bladeGeo, MAT.propellerBlue);
+                blade.position.set(Math.cos(angle) * 0.15, -0.02, Math.sin(angle) * 0.15);
+                blade.rotation.y = -angle;
+                blade.rotation.z = 0.45; // Pitch angle
+                propGroup.add(blade);
+            }
+            propGroup.position.y = -0.08;
+            tGroup.add(propGroup);
+            propellers.push(propGroup);
+
+            // Protective Inlet Wire Guard (Debris Screen)
+            const guardRing = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.015, 6, 24), MAT.ss316);
+            guardRing.rotation.x = Math.PI / 2;
+            guardRing.position.y = 0.22;
+            tGroup.add(guardRing);
+
+            tGroup.add(duct);
+            tGroup.add(motorPod);
+
+            // Rotate based on horizontal or vertical alignment
+            if (isHorizontal) {
+                tGroup.rotation.z = Math.PI / 2;
+            }
+
+            return tGroup;
+        }
+
+        /* 5. SUBSEA SENSOR CARTRIDGE (BOTTOM MODULAR ARRAY) */
+        function buildSensorCartridge(group) {
+            const cartridgeY = -1.05;
+
+            // Modular Sensor Base Tray
+            const trayGeo = new THREE.BoxGeometry(2.4, 0.1, 1.6);
+            const tray = new THREE.Mesh(trayGeo, MAT.machinedMetal);
+            tray.position.set(0, cartridgeY, 0);
+            tray.castShadow = true;
+            group.add(tray);
+
+            // Non-conductive isolation faceplate
+            const faceplate = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.03, 1.5), MAT.chassisBlack);
+            faceplate.position.set(0, cartridgeY - 0.06, 0);
+            group.add(faceplate);
+
+            /* --- 5.A TRANSMIT (TX) COIL (Large Central Coil) --- */
+            const txOuterRing = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.08, 32), MAT.coilHousing);
+            txOuterRing.position.set(0, cartridgeY - 0.1, 0);
+            group.add(txOuterRing);
+
+            const txCopperWinding = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.06, 12, 32), MAT.copperCoil);
+            txCopperWinding.rotation.x = Math.PI / 2;
+            txCopperWinding.position.set(0, cartridgeY - 0.12, 0);
+            group.add(txCopperWinding);
+
+            /* --- 5.B TWO RECEIVE (RX) COILS (Left & Right of TX Coil) --- */
+            [-0.78, 0.78].forEach(x => {
+                const rxOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.07, 24), MAT.coilHousing);
+                rxOuter.position.set(x, cartridgeY - 0.09, 0);
+                group.add(rxOuter);
+
+                const rxCoil = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.04, 10, 24), MAT.copperCoil);
+                rxCoil.rotation.x = Math.PI / 2;
+                rxCoil.position.set(x, cartridgeY - 0.11, 0);
+                group.add(rxCoil);
+            });
+
+            /* --- 5.C DOWNWARD INSPECTION CAMERA + 2 HIGH-INTENSITY LED LIGHTS --- */
+            // Camera Pod
+            const camGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.18, 18);
+            const cameraPod = new THREE.Mesh(camGeo, MAT.machinedMetal);
+            cameraPod.position.set(-0.25, cartridgeY - 0.12, 0.45);
+            group.add(cameraPod);
+
+            const camLens = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 18), MAT.cameraLens);
+            camLens.position.set(-0.25, cartridgeY - 0.21, 0.45);
+            group.add(camLens);
+
+            // Two LED Projectors (Cool White Floodlights)
+            [-0.6, 0.6].forEach(x => {
+                const ledHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.16, 16), MAT.chassisBlack);
+                ledHousing.position.set(x, cartridgeY - 0.11, 0.45);
+                group.add(ledHousing);
+
+                const ledLens = new THREE.Mesh(new THREE.CircleGeometry(0.09, 16), MAT.ledEmitter);
+                ledLens.rotation.x = Math.PI / 2;
+                ledLens.position.set(x, cartridgeY - 0.19, 0.45);
+                group.add(ledLens);
+
+                // Subsea Spotlight Cone
+                const spot = new THREE.SpotLight(0xafe4ff, 3.5, 6, Math.PI / 4, 0.4, 1.2);
+                spot.position.set(x, cartridgeY - 0.2, 0.45);
+                spot.target.position.set(x, cartridgeY - 3.0, 0.45);
+                scene.add(spot);
+                scene.add(spot.target);
+                subseaSpotlights.push(spot);
+
+                // Volumetric light beam cone representation
+                const beamGeo = new THREE.ConeGeometry(1.2, 2.5, 16, 1, true);
+                const beamMat = new THREE.MeshBasicMaterial({
+                    color: 0x00e5ff,
+                    transparent: true,
+                    opacity: 0.12,
+                    side: THREE.DoubleSide,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const beam = new THREE.Mesh(beamGeo, beamMat);
+                beam.position.set(x, cartridgeY - 1.35, 0.45);
+                group.add(beam);
+            });
+
+            /* --- 5.D ACOUSTIC ALTIMETER (Standoff Sonar Sensor) --- */
+            const altimeter = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.24, 16), MAT.ss316);
+            altimeter.position.set(0.25, cartridgeY - 0.14, 0.45);
+            group.add(altimeter);
+
+            const transducer = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.03, 16), MAT.rubberBlack);
+            transducer.position.set(0.25, cartridgeY - 0.26, 0.45);
+            group.add(transducer);
+
+            /* --- 5.E TWO GALVANIC ELECTRODE PROBES --- */
+            [-1.0, 1.0].forEach(x => {
+                // Insulated Standoff Base
+                const insulator = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.15, 12), MAT.chassisBlack);
+                insulator.position.set(x, cartridgeY - 0.12, -0.45);
+                group.add(insulator);
+
+                // SS316 Electrode Needle / Contact Tip
+                const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.005, 0.22, 12), MAT.ss316);
+                needle.position.set(x, cartridgeY - 0.26, -0.45);
+                group.add(needle);
+            });
+        }
+
+        /* 6. MAGNETOMETER EXTENSION BOOM */
+        function buildMagnetometerBoom(group) {
+            // Extended Side Boom Arm (Non-magnetic Carbon/Aluminum)
+            const boomArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.1, 12), MAT.chassisBlack);
+            boomArm.rotation.z = Math.PI / 2.8;
+            boomArm.position.set(-1.6, -0.2, 1.5);
+            group.add(boomArm);
+
+            // Triaxial Magnetometer Cylindrical Sensor Pod
+            const magPod = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 16), MAT.ss316);
+            magPod.position.set(-2.1, 0.1, 1.5);
+            group.add(magPod);
+
+            // Boom attachment collar
+            const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 12), MAT.machinedMetal);
+            collar.position.set(-1.25, -0.4, 1.45);
+            group.add(collar);
+        }
+
+        /* 7. TETHER & REALISTIC CABLE ROUTING */
+        function buildTetherAndCabling(group) {
+            // Upper Center-Rear Tether Cable Entry
+            const tetherCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-1.1, 0.45, -0.3),
+                new THREE.Vector3(-1.6, 0.9, -0.5),
+                new THREE.Vector3(-2.2, 1.6, -0.8),
+                new THREE.Vector3(-2.8, 2.6, -1.2)
+            ]);
+
+            const tetherGeo = new THREE.TubeGeometry(tetherCurve, 32, 0.05, 12, false);
+            const tetherMesh = new THREE.Mesh(tetherGeo, MAT.tetherYellow);
+            tetherMesh.castShadow = true;
+            group.add(tetherMesh);
+
+            // Strain Relief Rubber Boot
+            const bootGeo = new THREE.ConeGeometry(0.09, 0.35, 12);
+            const boot = new THREE.Mesh(bootGeo, MAT.rubberBlack);
+            boot.rotation.z = -Math.PI / 3;
+            boot.position.set(-1.2, 0.55, -0.35);
+            group.add(boot);
+
+            // Marine Black Conduit Lines running to Thrusters & Sensor Bay
+            const conduit1Curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-1.1, 0.2, 0.2),
+                new THREE.Vector3(-1.3, -0.1, 0.9),
+                new THREE.Vector3(-1.6, 0.05, 1.4)
+            ]);
+            const conduit1 = new THREE.Mesh(new THREE.TubeGeometry(conduit1Curve, 16, 0.022, 8, false), MAT.rubberBlack);
+            group.add(conduit1);
+
+            const conduit2Curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(1.1, 0.2, 0.2),
+                new THREE.Vector3(1.2, -0.4, 0.8),
+                new THREE.Vector3(0.8, -0.9, 0.4)
+            ]);
+            const conduit2 = new THREE.Mesh(new THREE.TubeGeometry(conduit2Curve, 16, 0.022, 8, false), MAT.rubberBlack);
+            group.add(conduit2);
+        }
+
+        /* -------------------------------------------------------------
+           INTERACTIVE 3D HOTSPOTS
+           ------------------------------------------------------------- */
+        function createHotspots() {
+            const hotspotData = [
+                { id: 'housing', pos: new THREE.Vector3(0, 0.2, 0), num: '1', key: 'housing' },
+                { id: 'buoyancy', pos: new THREE.Vector3(1.0, 1.1, 0.95), num: '2', key: 'buoyancy' },
+                { id: 'thrusters', pos: new THREE.Vector3(-1.75, 0.1, 1.6), num: '3', key: 'thrusters' },
+                { id: 'vert_thruster', pos: new THREE.Vector3(1.1, 0.3, 1.55), num: '4', key: 'thrusters' },
+                { id: 'sensors', pos: new THREE.Vector3(0, -1.2, 0), num: '5', key: 'sensors' },
+                { id: 'mag', pos: new THREE.Vector3(-2.1, 0.15, 1.5), num: '6', key: 'magnetometer' },
+                { id: 'tether', pos: new THREE.Vector3(-1.6, 0.95, -0.5), num: '7', key: 'tether' }
+            ];
+
+            const layer = document.getElementById('hotspots-layer');
+
+            hotspotData.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'annotation-marker';
+                el.innerText = item.num;
+                el.onclick = () => selectHotspot(item.key, item.pos);
+                layer.appendChild(el);
+
+                hotspots.push({ element: el, pos: item.pos, key: item.key });
+            });
+        }
+
+        function updateHotspotPositions() {
+            const wp = new THREE.Vector3();
+            hotspots.forEach(h => {
+                wp.copy(h.pos);
+                // Adjust position if exploded
+                if (CONFIG.explodeProgress > 0) {
+                    if (h.key === 'buoyancy') wp.y += CONFIG.explodeProgress * 1.2;
+                    if (h.key === 'sensors') wp.y -= CONFIG.explodeProgress * 1.5;
+                    if (h.key === 'thrusters') wp.z += CONFIG.explodeProgress * 1.1;
+                }
+
+                wp.project(camera);
+
+                // Check if behind camera
+                if (wp.z > 1) {
+                    h.element.style.display = 'none';
+                    return;
+                }
+
+                h.element.style.display = 'flex';
+                const x = (wp.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-(wp.y * 0.5) + 0.5) * window.innerHeight;
+                h.element.style.left = `${x}px`;
+                h.element.style.top = `${y}px`;
+            });
+        }
+
+        function selectHotspot(key, targetPos) {
+            displayPartInfo(key);
+
+            // Smooth camera glide towards component
+            const offset = new THREE.Vector3(1.8, 1.2, 2.2);
+            const newCamPos = targetPos.clone().add(offset);
+
+            new TWEEN.Tween(camera.position)
+                .to(newCamPos, 900)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .start();
+
+            new TWEEN.Tween(controls.target)
+                .to(targetPos, 900)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .start();
+        }
+
+        function displayPartInfo(key) {
+            const data = PART_DATA[key] || PART_DATA.overview;
+            document.getElementById('info-title').innerHTML = `<span>${data.title}</span> <span class="dim-box">${data.badge}</span>`;
+            document.getElementById('info-desc').innerText = data.desc;
+
+            const list = document.getElementById('info-bullets');
+            list.innerHTML = '';
+            data.bullets.forEach(b => {
+                const li = document.createElement('li');
+                li.innerText = b;
+                list.appendChild(li);
+            });
+        }
+
+        /* -------------------------------------------------------------
+           UI CONTROLS & EVENT HANDLERS
+           ------------------------------------------------------------- */
+        function toggleThrusters() {
+            CONFIG.thrustersRunning = !CONFIG.thrustersRunning;
+            const btn = document.getElementById('btn-spin');
+            btn.classList.toggle('active', CONFIG.thrustersRunning);
+            btn.innerHTML = `<span>⚡</span> Thrusters: ${CONFIG.thrustersRunning ? 'ON' : 'OFF'}`;
+        }
+
+        function toggleLights() {
+            CONFIG.lightsOn = !CONFIG.lightsOn;
+            const btn = document.getElementById('btn-lights');
+            btn.classList.toggle('active', CONFIG.lightsOn);
+            btn.innerHTML = `<span>💡</span> Subsea LEDs: ${CONFIG.lightsOn ? 'ON' : 'OFF'}`;
+            subseaSpotlights.forEach(s => s.intensity = CONFIG.lightsOn ? 3.5 : 0);
+        }
+
+        function toggleOceanFx() {
+            CONFIG.oceanFx = !CONFIG.oceanFx;
+            const btn = document.getElementById('btn-water');
+            btn.classList.toggle('active', CONFIG.oceanFx);
+            btn.innerHTML = `<span>🌊</span> Ocean FX: ${CONFIG.oceanFx ? 'ON' : 'OFF'}`;
+            oceanParticles.visible = CONFIG.oceanFx;
+            causticLight.intensity = CONFIG.oceanFx ? 1.5 : 0;
+        }
+
+        function toggleWireframe() {
+            CONFIG.wireframe = !CONFIG.wireframe;
+            const btn = document.getElementById('btn-wireframe');
+            btn.classList.toggle('active', CONFIG.wireframe);
+
+            Object.values(MAT).forEach(mat => {
+                if (mat.wireframe !== undefined) mat.wireframe = CONFIG.wireframe;
+            });
+        }
+
+        function focusElectronics() {
+            displayPartInfo('housing');
+            new TWEEN.Tween(camera.position).to({ x: 0, y: 0.2, z: 2.2 }, 800).easing(TWEEN.Easing.Cubic.Out).start();
+            new TWEEN.Tween(controls.target).to({ x: 0, y: 0.1, z: 0 }, 800).easing(TWEEN.Easing.Cubic.Out).start();
+        }
+
+        function setExplode(val) {
+            val = parseFloat(val);
+            CONFIG.explodeProgress = val;
+            document.getElementById('explode-val').innerText = `${Math.round(val * 100)}%`;
+
+            // Translate sub-assemblies along mechanical separation axes
+            explodedGroups.buoyancyTop.position.y = val * 1.4;
+            explodedGroups.cartridge.position.y = -val * 1.6;
+            explodedGroups.thrustersH.position.z = val * 0.9;
+            explodedGroups.thrustersV.position.z = val * 0.9;
+            explodedGroups.housing.position.x = val * 0.7;
+            explodedGroups.magBoom.position.x = -val * 1.2;
+            explodedGroups.tether.position.y = val * 0.8;
+        }
+
+        function setView(viewName, btnElement) {
+            if (btnElement) {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+
+            const target = { x: 0, y: 0, z: 0 };
+            let cam = { x: 4.5, y: 3.2, z: 5.2 };
+
+            if (viewName === 'front') {
+                cam = { x: 0, y: 0, z: 5.8 };
+                displayPartInfo('overview');
+            } else if (viewName === 'side') {
+                cam = { x: 6.2, y: 0.1, z: 0 };
+                displayPartInfo('overview');
+            } else if (viewName === 'top') {
+                cam = { x: 0.01, y: 6.8, z: 0.01 };
+                displayPartInfo('buoyancy');
+            } else if (viewName === 'bottom') {
+                cam = { x: 0.01, y: -5.8, z: 0.01 };
+                displayPartInfo('sensors');
+            } else if (viewName === 'exploded') {
+                cam = { x: 4.8, y: 3.6, z: 5.4 };
+                document.getElementById('explode-slider').value = "0.75";
+                setExplode(0.75);
+                displayPartInfo('overview');
+            } else { // Iso
+                cam = { x: 4.5, y: 3.2, z: 5.2 };
+                document.getElementById('explode-slider').value = "0";
+                setExplode(0);
+                displayPartInfo('overview');
+            }
+
+            new TWEEN.Tween(camera.position).to(cam, 800).easing(TWEEN.Easing.Cubic.Out).start();
+            new TWEEN.Tween(controls.target).to(target, 800).easing(TWEEN.Easing.Cubic.Out).start();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /* -------------------------------------------------------------
+           ANIMATION & RENDER LOOP
+           ------------------------------------------------------------- */
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const dt = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            TWEEN.update();
+            controls.update();
+
+            // Rotate Thruster Propellers if active
+            if (CONFIG.thrustersRunning) {
+                propellers.forEach((p, idx) => {
+                    const dir = idx % 2 === 0 ? 1 : -1;
+                    p.rotation.y += 28.0 * dt * dir;
+                });
+            }
+
+            // Animate Ocean Particles & Caustic Lights
+            if (CONFIG.oceanFx && oceanParticles) {
+                const pos = oceanParticles.geometry.attributes.position.array;
+                for (let i = 1; i < pos.length; i += 3) {
+                    pos[i] -= 0.18 * dt;
+                    if (pos[i] < -4) pos[i] = 4;
+                }
+                oceanParticles.geometry.attributes.position.needsUpdate = true;
+
+                // Subtle ROV subsea buoyancy float / bobbing
+                if (rovRootGroup && CONFIG.explodeProgress === 0) {
+                    rovRootGroup.position.y = Math.sin(time * 1.4) * 0.04;
+                    rovRootGroup.rotation.z = Math.sin(time * 0.9) * 0.015;
+                }
+
+                // Dynamic caustic spotlight shimmer
+                causticLight.position.x = Math.sin(time * 2.0) * 2.5;
+                causticLight.position.z = Math.cos(time * 1.5) * 2.5;
+            }
+
+            updateHotspotPositions();
+
+            renderer.render(scene, camera);
+        }
+
+        // Initialize on DOM load
+        window.onload = init;
+    </script>
+</body>
+</html>
